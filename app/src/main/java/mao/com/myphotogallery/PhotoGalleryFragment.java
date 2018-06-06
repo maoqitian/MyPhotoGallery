@@ -1,5 +1,6 @@
 package mao.com.myphotogallery;
 
+import android.graphics.Point;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
@@ -7,13 +8,13 @@ import android.support.v4.app.Fragment;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
+import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.widget.TextView;
 
-import java.io.FileFilter;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,13 +31,19 @@ public class PhotoGalleryFragment extends Fragment{
 
     private List<GalleryItem> mItems = new ArrayList<>();
 
+    private int currentPage = 1;//当前数据页数
+
+    private PhotoAdapter mAdapter;
+
+    private static final int ITEM_WIDTH = 300;//每个Item 的宽度
+    private GridLayoutManager mGridLayoutManager;
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setReenterTransition(true);//Activity 重新创建的时候不重新创建Fragment
 
         //使用AsyncTask 异步任务获取网络数据
-        new FetchItemsTask().execute();
+        new FetchItemsTask().execute(currentPage);
     }
 
     @Nullable
@@ -44,14 +51,60 @@ public class PhotoGalleryFragment extends Fragment{
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_photo_gallery, container, false);
         mPhotoRecyclerView=view.findViewById(R.id.photo_recycler_view);
+
+        //在fragment的视图创建时就计算并设置好网格列数。
+        int spanCount = calcSpanCount();
+        mGridLayoutManager=new GridLayoutManager(getActivity(),spanCount);
         mPhotoRecyclerView.setLayoutManager(new GridLayoutManager(getActivity(),3));
+        mPhotoRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
+                int lastPosition = -1;
+                //判断是否滑动到底部
+                if(newState == RecyclerView.SCROLL_STATE_IDLE){
+                    RecyclerView.LayoutManager layoutManager = recyclerView.getLayoutManager();
+                    lastPosition=((GridLayoutManager)layoutManager).findLastVisibleItemPosition();
+                    if(lastPosition == recyclerView.getLayoutManager().getItemCount()-1){//已经滑动到底部
+                        currentPage+=1;
+                        new FlickrFetchr().fetchItems(currentPage);//加载下一页
+                    }
+                }
+            }
+
+            @Override
+            public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+            }
+        });
+
+        //动态调整网格列
+        mPhotoRecyclerView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                int spanCount = calcSpanCount();
+                mGridLayoutManager.setSpanCount(spanCount);
+            }
+        });
         setupAdapter();
         return view;
     }
 
+    private int calcSpanCount() {
+        Display defaultDisplay = getActivity().getWindowManager().getDefaultDisplay();
+        Point point=new Point();
+        defaultDisplay.getSize(point);
+        int width=point.x;
+        int spanCount= Math.round(width/ITEM_WIDTH);
+        return spanCount;
+    }
+
     private void setupAdapter() {
-        if (isAdded()) {//isAdded()检查确认fragment已与目 标activity相关联，从而保证getActivity()方法返回结果非空
-            mPhotoRecyclerView.setAdapter(new PhotoAdapter(mItems));
+        if (mAdapter == null&& isAdded()) {//isAdded()检查确认fragment已与目 标activity相关联，从而保证getActivity()方法返回结果非空]
+            mAdapter = new PhotoAdapter(mItems);
+            mPhotoRecyclerView.setAdapter(mAdapter);
+        }else {
+            mAdapter.setItems(mItems);
+            mAdapter.notifyDataSetChanged();
         }
     }
 
@@ -66,11 +119,12 @@ public class PhotoGalleryFragment extends Fragment{
     }
 
 
-    private class FetchItemsTask extends AsyncTask<Void,Void, List<GalleryItem> >{
+    private  class FetchItemsTask extends AsyncTask<Integer,Void, List<GalleryItem> >{
 
         @Override
-        protected  List<GalleryItem>  doInBackground(Void... voids) {
-            return new FlickrFetchr().fetchItems();
+        protected  List<GalleryItem>  doInBackground(Integer... params) {
+            int page=params[0];
+            return new FlickrFetchr().fetchItems(page);
         }
 
         @Override
@@ -96,7 +150,12 @@ public class PhotoGalleryFragment extends Fragment{
     private class PhotoAdapter extends RecyclerView.Adapter<PhotoHolder> {
         private List<GalleryItem> mGalleryItems;
         public PhotoAdapter(List<GalleryItem> galleryItems) {
-            mGalleryItems = galleryItems;   }
+            mGalleryItems = galleryItems;
+        }
+
+        public void setItems(List<GalleryItem> items) {
+            mGalleryItems = items;
+        }
         @Override
         public PhotoHolder onCreateViewHolder(ViewGroup viewGroup, int viewType)
         {   TextView textView = new TextView(getActivity());   return new PhotoHolder(textView);

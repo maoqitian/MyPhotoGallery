@@ -3,6 +3,9 @@ package mao.com.myphotogallery.http;
 import android.net.Uri;
 import android.util.Log;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -16,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import mao.com.myphotogallery.model.GalleryItem;
+import mao.com.myphotogallery.model.PhotosItem;
 
 /**
  * 基本网络连接
@@ -54,8 +58,9 @@ public class FlickrFetchr {
 
     /**
      * 获取GalleryItem 数据
+     * @param page 加载的是第几页数据
      */
-    public  List<GalleryItem>  fetchItems() {
+    public  List<GalleryItem>  fetchItems(int page) {
         List<GalleryItem> items = new ArrayList<>();
         try {
         String url = Uri.parse("https://api.flickr.com/services/rest/")
@@ -65,12 +70,17 @@ public class FlickrFetchr {
                 .appendQueryParameter("format", "json")
                 .appendQueryParameter("nojsoncallback", "1")
                 .appendQueryParameter("extras", "url_s")
+                .appendQueryParameter("page", String.valueOf(page))
                 .build().toString();
             String jsonStr=getUrlString(url);
             JSONObject jsonObject=new JSONObject(jsonStr);
-            Log.i(TAG, "Received JSON: " + jsonStr);
+            Log.e(TAG, "Received JSON: " + jsonStr);
             parseItems(items,jsonObject);
-        } catch (IOException | JSONException e) {
+            //使用 Gson 解析 JSON 数据
+           /* Gson gson=new Gson();
+            PhotosItem fromJson = gson.fromJson(jsonStr, new TypeToken<PhotosItem>() {}.getType());
+            items.addAll( fromJson.photos.photo);*/
+        } catch (IOException  | JSONException e) {//| JSONException e
             e.printStackTrace();
         }
         return items;
