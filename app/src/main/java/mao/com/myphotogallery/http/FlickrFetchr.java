@@ -27,7 +27,7 @@ import mao.com.myphotogallery.model.PhotosItem;
 public class FlickrFetchr {
 
     private static final String TAG = "FlickrFetchr";
-    private static final String API_KEY = " f2c037ce818631eab099ef43e54c3165 ";
+    private static final String API_KEY = "f2c037ce818631eab099ef43e54c3165";
 
     //获取网络数据字节数组
     public byte[] getUrlBytes(String urlSpec) throws IOException {

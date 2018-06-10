@@ -1,8 +1,12 @@
 package mao.com.myphotogallery;
 
+import android.graphics.Bitmap;
 import android.graphics.Point;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.GridLayoutManager;
@@ -13,6 +17,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import java.util.ArrayList;
@@ -20,6 +25,7 @@ import java.util.List;
 
 import mao.com.myphotogallery.http.FlickrFetchr;
 import mao.com.myphotogallery.model.GalleryItem;
+import mao.com.myphotogallery.thread.ThumbnailDownloader;
 
 /**
  * 显示图片Fragment
@@ -37,6 +43,8 @@ public class PhotoGalleryFragment extends Fragment{
 
     private static final int ITEM_WIDTH = 300;//每个Item 的宽度
     private GridLayoutManager mGridLayoutManager;
+
+    private ThumbnailDownloader<PhotoHolder> mThumbnailDownloader;
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -44,6 +52,18 @@ public class PhotoGalleryFragment extends Fragment{
 
         //使用AsyncTask 异步任务获取网络数据
         new FetchItemsTask().execute(currentPage);
+        Handler responseHandler=new Handler();
+        mThumbnailDownloader=new ThumbnailDownloader<>(responseHandler);
+        mThumbnailDownloader.setThumbnailDownloadListener(new ThumbnailDownloader.ThumbnailDownloadListener<PhotoHolder>() {
+            @Override
+            public void onThumbnailDownload(PhotoHolder photoHolder, Bitmap bitmap) {
+                Drawable drawable = new BitmapDrawable(getResources(), bitmap);
+                photoHolder.bindGalleryItem(drawable);
+            }
+        });
+        mThumbnailDownloader.start();
+        mThumbnailDownloader.getLooper();
+        Log.e(TAG, "Background thread started");
     }
 
     @Nullable
@@ -56,26 +76,28 @@ public class PhotoGalleryFragment extends Fragment{
         int spanCount = calcSpanCount();
         mGridLayoutManager=new GridLayoutManager(getActivity(),spanCount);
         mPhotoRecyclerView.setLayoutManager(new GridLayoutManager(getActivity(),3));
-        mPhotoRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
-            @Override
-            public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
-                int lastPosition = -1;
-                //判断是否滑动到底部
-                if(newState == RecyclerView.SCROLL_STATE_IDLE){
-                    RecyclerView.LayoutManager layoutManager = recyclerView.getLayoutManager();
-                    lastPosition=((GridLayoutManager)layoutManager).findLastVisibleItemPosition();
-                    if(lastPosition == recyclerView.getLayoutManager().getItemCount()-1){//已经滑动到底部
-                        currentPage+=1;
-                        new FlickrFetchr().fetchItems(currentPage);//加载下一页
-                    }
-                }
-            }
 
-            @Override
-            public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
-                super.onScrolled(recyclerView, dx, dy);
-            }
-        });
+        mPhotoRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+                    @Override
+                    public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
+                        int lastPosition = -1;
+                        //判断是否滑动到底部
+                        if(newState == RecyclerView.SCROLL_STATE_IDLE){
+                            RecyclerView.LayoutManager layoutManager = recyclerView.getLayoutManager();
+                            lastPosition=((GridLayoutManager)layoutManager).findLastVisibleItemPosition();
+                            if(lastPosition == recyclerView.getLayoutManager().getItemCount()-1){//已经滑动到底部
+                                currentPage+=1;
+                                new FlickrFetchr().fetchItems(currentPage);//加载下一页
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+                        super.onScrolled(recyclerView, dx, dy);
+                    }
+                });
+
 
         //动态调整网格列
         mPhotoRecyclerView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
@@ -88,7 +110,7 @@ public class PhotoGalleryFragment extends Fragment{
         setupAdapter();
         return view;
     }
-
+    //适应不同大小网格适配
     private int calcSpanCount() {
         Display defaultDisplay = getActivity().getWindowManager().getDefaultDisplay();
         Point point=new Point();
@@ -106,6 +128,19 @@ public class PhotoGalleryFragment extends Fragment{
             mAdapter.setItems(mItems);
             mAdapter.notifyDataSetChanged();
         }
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        mThumbnailDownloader.clearQueue();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        mThumbnailDownloader.quit();
+        Log.e(TAG, "Background thread destroyed");
     }
 
     public static PhotoGalleryFragment newInstance() {
@@ -136,14 +171,16 @@ public class PhotoGalleryFragment extends Fragment{
 
 
     private class PhotoHolder extends RecyclerView.ViewHolder {
-        private TextView mTitleTextView;
+        private ImageView mImageView;
         public PhotoHolder(View itemView) {
             super(itemView);
-            mTitleTextView = (TextView) itemView;
+            mImageView =  itemView.findViewById(R.id.item_image_view);
         }
-        public void bindGalleryItem(GalleryItem item)
-        {
-            mTitleTextView.setText(item.toString());
+        public void bindGalleryItem(GalleryItem item) {
+
+        }
+        public void bindGalleryItem(Drawable drawable) {
+             mImageView.setImageDrawable(drawable);
         }
     }
 
@@ -157,13 +194,17 @@ public class PhotoGalleryFragment extends Fragment{
             mGalleryItems = items;
         }
         @Override
-        public PhotoHolder onCreateViewHolder(ViewGroup viewGroup, int viewType)
-        {   TextView textView = new TextView(getActivity());   return new PhotoHolder(textView);
+        public PhotoHolder onCreateViewHolder(ViewGroup viewGroup, int viewType) {
+            View view = LayoutInflater.from(getActivity()).inflate(R.layout.list_item_gallery, null);
+            return new PhotoHolder(view);
         }
         @Override
         public void onBindViewHolder(PhotoHolder photoHolder, int position)
-        {   GalleryItem galleryItem = mGalleryItems.get(position);
-        photoHolder.bindGalleryItem(galleryItem);
+        {
+            GalleryItem galleryItem = mGalleryItems.get(position);
+            Drawable drawable=getResources().getDrawable(R.drawable.bill_up_close);
+            photoHolder.bindGalleryItem(drawable);
+            mThumbnailDownloader.queueThumbnail(photoHolder,galleryItem.getmUrl());
         }
         @Override
         public int getItemCount() {
