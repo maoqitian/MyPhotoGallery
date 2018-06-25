@@ -11,14 +11,19 @@ import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.SearchView;
 import android.util.Log;
 import android.view.Display;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +31,7 @@ import java.util.List;
 import mao.com.myphotogallery.http.FlickrFetchr;
 import mao.com.myphotogallery.model.GalleryItem;
 import mao.com.myphotogallery.thread.ThumbnailDownloader;
+import mao.com.myphotogallery.utils.QueryPreferences;
 
 /**
  * 显示图片Fragment
@@ -49,9 +55,9 @@ public class PhotoGalleryFragment extends Fragment{
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setReenterTransition(true);//Activity 重新创建的时候不重新创建Fragment
-
+        setHasOptionsMenu(true);//让Fragment接收菜单回调
         //使用AsyncTask 异步任务获取网络数据
-        new FetchItemsTask().execute(currentPage);
+        updateItems();
         Handler responseHandler=new Handler();
         mThumbnailDownloader=new ThumbnailDownloader<>(responseHandler);
         mThumbnailDownloader.setThumbnailDownloadListener(new ThumbnailDownloader.ThumbnailDownloadListener<PhotoHolder>() {
@@ -87,7 +93,7 @@ public class PhotoGalleryFragment extends Fragment{
                             lastPosition=((GridLayoutManager)layoutManager).findLastVisibleItemPosition();
                             if(lastPosition == recyclerView.getLayoutManager().getItemCount()-1){//已经滑动到底部
                                 currentPage+=1;
-                                new FlickrFetchr().fetchItems(currentPage);//加载下一页
+                                new FlickrFetchr().fetchRecentPhotos(currentPage);//加载下一页
                             }
                         }
                     }
@@ -100,13 +106,19 @@ public class PhotoGalleryFragment extends Fragment{
 
 
         //动态调整网格列
-        mPhotoRecyclerView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+     /*   mPhotoRecyclerView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
             @Override
             public void onGlobalLayout() {
                 int spanCount = calcSpanCount();
                 mGridLayoutManager.setSpanCount(spanCount);
             }
-        });
+        });*/
+       mPhotoRecyclerView.getViewTreeObserver().addOnGlobalLayoutListener(
+               ()->{
+                   int spanCount1 = calcSpanCount();
+                   mGridLayoutManager.setSpanCount(spanCount1);
+               }
+       );
         setupAdapter();
         return view;
     }
@@ -128,6 +140,53 @@ public class PhotoGalleryFragment extends Fragment{
             mAdapter.setItems(mItems);
             mAdapter.notifyDataSetChanged();
         }
+    }
+
+    //option 布局
+    @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        super.onCreateOptionsMenu(menu, inflater);
+        inflater.inflate(R.menu.fragment_photo_gallery,menu);
+        MenuItem searchItem  = menu.findItem(R.id.menu_item_search);
+        SearchView searchView= (SearchView) searchItem.getActionView();
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                Log.d(TAG, "QueryTextSubmit: " + query);
+                //保存输入的搜索字符
+                QueryPreferences.setStoredQuery(getActivity(),query);
+                updateItems();
+                return false;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                return false;
+            }
+        });
+        searchView.setOnSearchClickListener(view -> {
+            String query = QueryPreferences.getStoredQuery(getActivity());
+            //设置搜索文本框的值
+            searchView.setQuery(query, false);
+        });
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()){
+            case R.id.menu_item_clear:
+                QueryPreferences.setStoredQuery(getActivity(),null);
+                Toast.makeText(getActivity(),"搜索缓存已清除",Toast.LENGTH_SHORT).show();
+                updateItems();
+                return true;
+             default:
+                 return super.onOptionsItemSelected(item);
+        }
+    }
+
+    private void updateItems() {
+        String query = QueryPreferences.getStoredQuery(getActivity());
+        new FetchItemsTask(query).execute(currentPage);
     }
 
     @Override
@@ -154,12 +213,24 @@ public class PhotoGalleryFragment extends Fragment{
     }
 
 
-    private  class FetchItemsTask extends AsyncTask<Integer,Void, List<GalleryItem> >{
+    private class FetchItemsTask extends AsyncTask<Integer,Void, List<GalleryItem> >{
+
+        private String mQuery;
+
+        public FetchItemsTask(String query){
+            this.mQuery=query;
+        }
 
         @Override
         protected  List<GalleryItem>  doInBackground(Integer... params) {
             int page=params[0];
-            return new FlickrFetchr().fetchItems(page);
+            //String query = "robot"; // Just for testing
+            if (mQuery == null) {
+                return new FlickrFetchr().fetchRecentPhotos(page);
+            }
+            else {
+                return new FlickrFetchr().searchPhotos(mQuery);
+            }
         }
 
         @Override
@@ -196,6 +267,9 @@ public class PhotoGalleryFragment extends Fragment{
         @Override
         public PhotoHolder onCreateViewHolder(ViewGroup viewGroup, int viewType) {
             View view = LayoutInflater.from(getActivity()).inflate(R.layout.list_item_gallery, null);
+            view.setOnClickListener(view1 -> {
+
+            });
             return new PhotoHolder(view);
         }
         @Override

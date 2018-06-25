@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import mao.com.myphotogallery.cache.BitmapCache;
 import mao.com.myphotogallery.http.FlickrFetchr;
 
 /**
@@ -28,6 +29,7 @@ public class ThumbnailDownloader<T> extends HandlerThread {
 
     private Boolean mHasQuit = false;
 
+    private BitmapCache mCache;
 
 
     //接口回调通知主线程图片已经下载完成
@@ -49,8 +51,10 @@ public class ThumbnailDownloader<T> extends HandlerThread {
     public ThumbnailDownloader(Handler responseHandler) {
         super(TAG);
         mResponseHandler=responseHandler;
+        mCache=new BitmapCache();
     }
 
+    //HashMap 存入 target 和 url
     public void queueThumbnail(T target, String url) {
         Log.e(TAG, "Got a URL: " + url);
         if(url==null){

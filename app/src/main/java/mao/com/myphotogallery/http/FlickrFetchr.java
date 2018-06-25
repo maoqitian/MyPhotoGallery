@@ -29,6 +29,13 @@ public class FlickrFetchr {
     private static final String TAG = "FlickrFetchr";
     private static final String API_KEY = "f2c037ce818631eab099ef43e54c3165";
 
+    private static final String FETCH_RECENTS_METHOD = "flickr.photos.getRecent";
+    private static final String SEARCH_METHOD = "flickr.photos.search";
+    private static final Uri ENDPOINT = Uri.parse("https://api.flickr.com/services/rest/")
+            .buildUpon().appendQueryParameter("api_key", API_KEY).appendQueryParameter("format", "json")
+            .appendQueryParameter("nojsoncallback", "1")
+            .appendQueryParameter("extras", "url_s").build();
+
     //获取网络数据字节数组
     public byte[] getUrlBytes(String urlSpec) throws IOException {
         URL url = new URL(urlSpec);
@@ -58,12 +65,12 @@ public class FlickrFetchr {
 
     /**
      * 获取GalleryItem 数据
-     * @param page 加载的是第几页数据
+     * @param url
      */
-    public  List<GalleryItem>  fetchItems(int page) {
+    private List<GalleryItem> downloadGalleryItems(String url){
         List<GalleryItem> items = new ArrayList<>();
         try {
-        String url = Uri.parse("https://api.flickr.com/services/rest/")
+        /*String url = Uri.parse("https://api.flickr.com/services/rest/")
                 .buildUpon()
                 .appendQueryParameter("method", "flickr.photos.getRecent")
                 .appendQueryParameter("api_key", API_KEY)
@@ -71,7 +78,8 @@ public class FlickrFetchr {
                 .appendQueryParameter("nojsoncallback", "1")
                 .appendQueryParameter("extras", "url_s")
                 .appendQueryParameter("page", String.valueOf(page))
-                .build().toString();
+                .build().toString();*/
+
             String jsonStr=getUrlString(url);
             JSONObject jsonObject=new JSONObject(jsonStr);
             Log.e(TAG, "Received JSON: " + jsonStr);
@@ -84,6 +92,44 @@ public class FlickrFetchr {
             e.printStackTrace();
         }
         return items;
+    }
+
+    /**
+     * URL 辅助方法
+     * @param method
+     * @param query
+     * @param page 第几页数据
+     * @return 返回url
+     */
+    private String buildUrl(String method, String query,int page){
+        Uri.Builder uriBuilder = ENDPOINT.buildUpon().appendQueryParameter("method", method);
+        if(method.equals(SEARCH_METHOD)){
+            uriBuilder.appendQueryParameter("text",query);
+        }
+        if (page!=0){
+            uriBuilder.appendQueryParameter("page", String.valueOf(page));
+        }
+        return uriBuilder.build().toString();
+    }
+
+    /**
+     * 获取图片数据
+     * @param page 第几页数据
+     * @return
+     */
+    public List<GalleryItem> fetchRecentPhotos(int page){
+        String buildUrl = buildUrl(FETCH_RECENTS_METHOD,null,page);
+        return downloadGalleryItems(buildUrl);
+    }
+
+    /**
+     * 获取搜索图片的数据
+     * @param query 查询条件
+     * @return
+     */
+    public List<GalleryItem> searchPhotos(String query){
+        String buildUrl = buildUrl(SEARCH_METHOD, query,0);
+        return downloadGalleryItems(buildUrl);
     }
 
     /**
