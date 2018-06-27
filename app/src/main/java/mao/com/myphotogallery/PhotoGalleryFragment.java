@@ -61,8 +61,10 @@ public class PhotoGalleryFragment extends Fragment{
         //使用AsyncTask 异步任务获取网络数据
         updateItems();
 
-        Intent intent = PhotoGalleryService.newInstance(getActivity());
-        getActivity().startService(intent);
+        /*Intent intent = PhotoGalleryService.newInstance(getActivity());
+        getActivity().startService(intent);*/
+        //开启关键词最新搜索服务
+        //PhotoGalleryService.setServiceAlarm(getActivity(),true);
 
         Handler responseHandler=new Handler();
         mThumbnailDownloader=new ThumbnailDownloader<>(responseHandler);
@@ -154,6 +156,7 @@ public class PhotoGalleryFragment extends Fragment{
         super.onCreateOptionsMenu(menu, inflater);
         inflater.inflate(R.menu.fragment_photo_gallery,menu);
         MenuItem searchItem  = menu.findItem(R.id.menu_item_search);
+        MenuItem toggleitem = menu.findItem(R.id.menu_item_toggle_polling);
         SearchView searchView= (SearchView) searchItem.getActionView();
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
@@ -175,6 +178,12 @@ public class PhotoGalleryFragment extends Fragment{
             //设置搜索文本框的值
             searchView.setQuery(query, false);
         });
+        //设置开关定时搜索按钮的显示状态
+        if(PhotoGalleryService.isServiceAlarmOn(getActivity())){
+           toggleitem.setTitle(R.string.stop_polling);
+        }else {
+            toggleitem.setTitle(R.string.start_polling);
+        }
     }
 
     @Override
@@ -184,6 +193,12 @@ public class PhotoGalleryFragment extends Fragment{
                 QueryPreferences.setStoredQuery(getActivity(),null);
                 Toast.makeText(getActivity(),"搜索缓存已清除",Toast.LENGTH_SHORT).show();
                 updateItems();
+                return true;
+            case R.id.menu_item_toggle_polling:
+                boolean shouldStartAlarm  = !PhotoGalleryService.isServiceAlarmOn(getActivity());
+                PhotoGalleryService.setServiceAlarm(getActivity(),shouldStartAlarm);
+                //刷新状态栏
+                getActivity().invalidateOptionsMenu();
                 return true;
              default:
                  return super.onOptionsItemSelected(item);

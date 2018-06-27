@@ -1,5 +1,7 @@
 package mao.com.myphotogallery;
 
+import android.content.Context;
+import android.content.Intent;
 import android.support.v4.app.Fragment;
 
 
@@ -11,6 +13,12 @@ import mao.com.myphotogallery.base.SingleFragmentActivity;
  */
 
 public class PhotoGalleryActivity extends SingleFragmentActivity {
+
+
+    //让通知服务方便启动Activity
+    public static Intent newIntent(Context context){
+        return new Intent(context,PhotoGalleryActivity.class);
+    }
 
     @Override
     protected Fragment createFragment() {
