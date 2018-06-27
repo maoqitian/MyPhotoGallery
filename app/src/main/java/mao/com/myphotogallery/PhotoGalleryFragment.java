@@ -1,5 +1,6 @@
 package mao.com.myphotogallery;
 
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.graphics.drawable.BitmapDrawable;
@@ -30,6 +31,7 @@ import java.util.List;
 
 import mao.com.myphotogallery.http.FlickrFetchr;
 import mao.com.myphotogallery.model.GalleryItem;
+import mao.com.myphotogallery.service.PhotoGalleryService;
 import mao.com.myphotogallery.thread.ThumbnailDownloader;
 import mao.com.myphotogallery.utils.QueryPreferences;
 
@@ -58,6 +60,10 @@ public class PhotoGalleryFragment extends Fragment{
         setHasOptionsMenu(true);//让Fragment接收菜单回调
         //使用AsyncTask 异步任务获取网络数据
         updateItems();
+
+        Intent intent = PhotoGalleryService.newInstance(getActivity());
+        getActivity().startService(intent);
+
         Handler responseHandler=new Handler();
         mThumbnailDownloader=new ThumbnailDownloader<>(responseHandler);
         mThumbnailDownloader.setThumbnailDownloadListener(new ThumbnailDownloader.ThumbnailDownloadListener<PhotoHolder>() {
