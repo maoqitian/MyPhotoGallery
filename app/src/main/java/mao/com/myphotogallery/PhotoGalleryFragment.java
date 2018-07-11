@@ -38,7 +38,7 @@ import mao.com.myphotogallery.utils.QueryPreferences;
 /**
  * 显示图片Fragment
  */
-public class PhotoGalleryFragment extends Fragment{
+public class PhotoGalleryFragment extends VisibleFragment{
 
     private RecyclerView mPhotoRecyclerView;
     private static final String TAG = "PhotoGalleryFragment";

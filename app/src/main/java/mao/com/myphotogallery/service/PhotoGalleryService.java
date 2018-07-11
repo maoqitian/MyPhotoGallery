@@ -1,5 +1,6 @@
 package mao.com.myphotogallery.service;
 
+import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.IntentService;
 import android.app.Notification;
@@ -28,9 +29,18 @@ import mao.com.myphotogallery.utils.QueryPreferences;
  */
 public class PhotoGalleryService extends IntentService {
 
+    //自定义私有权限 ，保证广播只接收自己定义的消息
+    public static final String PERM_PRIVATE = "com.bignerdranch.android.photogallery.PRIVATE";
 
     // Set interval to 1 minute 15分钟
     private static final long POLL_INTERVAL_MS = TimeUnit.MINUTES.toMillis(15);
+
+    //广播标志常量
+    public static final String ACTION_SHOW_NOTIFICATION =   "com.bignerdranch.android.photogallery.SHOW_NOTIFICATION";
+
+
+    public static final String REQUEST_CODE = "REQUEST_CODE";
+    public static final String NOTIFICATION = "NOTIFICATION";
 
     //启动服务
     public static Intent newInstance(Context context) {
@@ -59,6 +69,8 @@ public class PhotoGalleryService extends IntentService {
                 pendingIntent.cancel();
             }
         }
+        //保存定时器的状态
+        QueryPreferences.setAlarmOn(context,isOn);
     }
 
     public PhotoGalleryService(String name) {
@@ -91,6 +103,7 @@ public class PhotoGalleryService extends IntentService {
             Resources resources = getResources();
             Intent i = PhotoGalleryActivity.newIntent(this);
             PendingIntent pendingIntent = PendingIntent.getService(this, 0, i, 0);
+            //NotificationCompat.Builder notification=new NotificationCompat.Builder(this) 另一种方式 
             Notification notification=new Notification.Builder(this)
                     .setTicker(resources.getString(R.string.new_pictures_title))
                     .setSmallIcon(android.R.drawable.ic_menu_report_image)
@@ -100,10 +113,22 @@ public class PhotoGalleryService extends IntentService {
                     .setAutoCancel(true)
                     .build();
 
-            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
+            /*NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
             notificationManager.notify(0,notification);
+
+            //发送特定广播
+            sendBroadcast(new Intent(ACTION_SHOW_NOTIFICATION),PERM_PRIVATE);*/
+            showBackgroundNotification(0, notification);
         }
         QueryPreferences.setLastResultId(this,resultId);
+    }
+
+    private void showBackgroundNotification(int requestCode, Notification notification) {
+        Intent intent=new Intent(ACTION_SHOW_NOTIFICATION);
+        intent.putExtra(REQUEST_CODE,REQUEST_CODE);
+        intent.putExtra(NOTIFICATION,notification);
+        sendOrderedBroadcast(intent,PERM_PRIVATE,null,null,
+                Activity.RESULT_OK,null,null);
     }
 
     /**

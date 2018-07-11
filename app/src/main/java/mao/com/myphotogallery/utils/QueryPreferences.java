@@ -11,6 +11,7 @@ import android.preference.PreferenceManager;
 public class QueryPreferences {
     private static final String PREF_SEARCH_QUERY = "searchQuery";
     private static final String PREF_LAST_RESULT_ID = "lastResultId";//最新返回结果
+    private static final String PREF_IS_ALARM_ON = "isAlarmOn";//是否开启定时器
 
     public static void setStoredQuery(Context context,String query){
         PreferenceManager.getDefaultSharedPreferences(context)
@@ -37,4 +38,19 @@ public class QueryPreferences {
                 .putString(PREF_LAST_RESULT_ID,lastResultId)
                 .apply();
     }
+
+    //获取定时器的状态
+    public static boolean isAlarmOn(Context context) {
+        return PreferenceManager.getDefaultSharedPreferences(context)
+                .getBoolean(PREF_IS_ALARM_ON, false);
+    }
+
+    //存放定时器的状态
+    public static void setAlarmOn(Context context,boolean isOn){
+        PreferenceManager.getDefaultSharedPreferences(context)
+                .edit()
+                .putBoolean(PREF_IS_ALARM_ON,isOn)
+                .apply();
+    }
+
 }
