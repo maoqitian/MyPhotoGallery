@@ -1,5 +1,7 @@
 package mao.com.myphotogallery.model;
 
+import android.net.Uri;
+
 /**
  * model
  */
@@ -8,6 +10,7 @@ public class GalleryItem {
     private String mCaption;
     private String mId;
     private String mUrl;
+    private String mOwner;
     @Override  public String toString() {
         return mCaption;
     }
@@ -34,5 +37,24 @@ public class GalleryItem {
 
     public void setmUrl(String mUrl) {
         this.mUrl = mUrl;
+    }
+
+
+    public String getmOwner() {
+        return mOwner;
+    }
+    public void setmOwner(String mOwner) {
+        this.mOwner = mOwner;
+    }
+
+    /**
+     * 获取图片URL 地址
+     */
+    public Uri getPhotoPageUri(){
+        return Uri.parse("http://www.flickr.com/photos/")
+                .buildUpon()
+                .appendPath(mOwner)
+                .appendPath(mId)
+                .build();
     }
 }

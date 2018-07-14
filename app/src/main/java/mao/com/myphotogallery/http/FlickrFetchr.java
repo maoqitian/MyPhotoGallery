@@ -150,6 +150,7 @@ public class FlickrFetchr {
                continue;
             }
             galleryItem.setmUrl(photoJsonObject.getString("url_s"));
+            galleryItem.setmOwner(photoJsonObject.getString("owner"));
             items.add(galleryItem);
         }
     }
